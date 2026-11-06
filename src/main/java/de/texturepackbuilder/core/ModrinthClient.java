@@ -118,6 +118,11 @@ public final class ModrinthClient {
 
     /** Lädt die neueste zur Spielversion passende Version eines Projekts in den Download-Ordner. */
     public static CompletableFuture<Path> download(Hit hit) {
+        return download(hit, Long.MAX_VALUE);
+    }
+
+    /** Wie download(hit), aber Dateien über maxBytes werden abgelehnt (für den automatischen PvP-Download). */
+    public static CompletableFuture<Path> download(Hit hit, long maxBytes) {
         String url = API + "/project/" + hit.id() + "/version?game_versions="
                 + enc("[\"" + TexturePackBuilder.GAME_VERSION + "\"]");
         return getString(url).thenCompose(body -> {
@@ -125,6 +130,9 @@ public final class ModrinthClient {
             if (versions.isEmpty()) throw new IllegalStateException("Keine Version für " + TexturePackBuilder.GAME_VERSION);
             JsonObject version = versions.get(0).getAsJsonObject();
             JsonObject file = pickFile(version.getAsJsonArray("files"));
+            if (file.has("size") && file.get("size").getAsLong() > maxBytes) {
+                throw new IllegalStateException("too large: " + (file.get("size").getAsLong() / 1_000_000) + " MB");
+            }
             String fileUrl = file.get("url").getAsString();
             String sha1 = file.getAsJsonObject("hashes").has("sha1")
                     ? file.getAsJsonObject("hashes").get("sha1").getAsString() : null;

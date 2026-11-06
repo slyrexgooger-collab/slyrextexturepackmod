@@ -49,10 +49,11 @@ public final class Scanner {
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
             for (Path p : ds) {
                 String file = p.getFileName().toString();
+                long modified = Files.getLastModifiedTime(p).toMillis();
                 if (Files.isRegularFile(p) && file.toLowerCase().endsWith(".zip")) {
-                    out.add(new SourcePack(file.substring(0, file.length() - 4), p, true, origin));
+                    out.add(new SourcePack(file.substring(0, file.length() - 4), p, true, origin, modified));
                 } else if (Files.isDirectory(p) && Files.exists(p.resolve("pack.mcmeta"))) {
-                    out.add(new SourcePack(file, p, false, origin));
+                    out.add(new SourcePack(file, p, false, origin, modified));
                 }
             }
         }
@@ -73,6 +74,7 @@ public final class Scanner {
                 Set<String> nameSet = new HashSet<>(names);
                 if (nameSet.contains(Dirs.GENERATED_MARKER)) continue; // selbst gebautes Pack überspringen
                 packs.add(pack);
+                ModelBundles.collect(pack, io, names, nameSet, idx.bundles);
                 for (String entry : names) {
                     if (!TEXTURE.matcher(entry).matches()) continue;
                     idx.filesScanned++;

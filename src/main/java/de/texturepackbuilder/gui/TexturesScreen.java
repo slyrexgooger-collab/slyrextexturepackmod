@@ -32,7 +32,7 @@ public class TexturesScreen extends BaseScreen {
     private static Search.Sort sort = Search.Sort.RELEVANCE;
     private static int page = 0, variantPage = 0;
     private static String focused = null;
-    private static String packName = null;
+    static String packName = null;
 
     private int top, bottom, sideX, sideW, centerX, centerW, detailX, detailW, gridTop, gridBottom;
     private int previewSize, variantsTop, filterHeaderY;
@@ -105,6 +105,7 @@ public class TexturesScreen extends BaseScreen {
         }).bounds(sideX + 4, y, sideW - 8, 18).build());
         addRenderableWidget(Button.builder(Component.translatable("tpb.button.reset"), b -> {
             Selection.chosen.clear();
+            Selection.models.clear();
             Selection.save();
             Session.status = Component.translatable("tpb.status.reset_done");
             refresh();
@@ -146,7 +147,7 @@ public class TexturesScreen extends BaseScreen {
         int doneW = 60, buildW = 84, nameW = width < 560 ? 90 : 130;
         addRenderableWidget(Button.builder(Component.translatable("tpb.button.done"), b -> onClose())
                 .bounds(width - 8 - doneW, by, doneW, 20).build());
-        addRenderableWidget(Button.builder(Component.translatable("tpb.button.build"), b -> Session.build(packName))
+        addRenderableWidget(Button.builder(Component.translatable("tpb.button.apply"), b -> Session.build(packName, true))
                 .bounds(width - 8 - doneW - 4 - buildW, by, buildW, 20).build());
         nameBox = addRenderableWidget(new EditBox(font, width - 8 - doneW - 4 - buildW - 4 - nameW, by + 1, nameW, 18,
                 Component.translatable("tpb.packname.hint")));

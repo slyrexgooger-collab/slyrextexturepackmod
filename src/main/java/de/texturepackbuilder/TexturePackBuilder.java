@@ -1,6 +1,6 @@
 package de.texturepackbuilder;
 
-import de.texturepackbuilder.gui.TexturesScreen;
+import de.texturepackbuilder.gui.ItemsScreen;
 import net.fabricmc.api.ClientModInitializer;
 import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
 import net.fabricmc.fabric.api.client.screen.v1.Screens;
@@ -36,7 +36,7 @@ public class TexturePackBuilder implements ClientModInitializer {
             if (screen instanceof TitleScreen || screen instanceof PackSelectionScreen) {
                 Screens.getButtons(screen).add(
                         Button.builder(Component.translatable("tpb.button.open"),
-                                        b -> client.setScreen(new TexturesScreen(screen)))
+                                        b -> client.setScreen(new ItemsScreen(screen)))
                                 .bounds(5, 5, 100, 20)
                                 .build());
             }

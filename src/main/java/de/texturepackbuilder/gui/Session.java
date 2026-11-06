@@ -5,22 +5,33 @@ import de.texturepackbuilder.core.Exporter;
 import de.texturepackbuilder.core.Importer;
 import de.texturepackbuilder.core.Model.SourcePack;
 import de.texturepackbuilder.core.Model.TextureIndex;
+import de.texturepackbuilder.core.ModrinthClient;
+import de.texturepackbuilder.core.PvpCatalog.Item;
 import de.texturepackbuilder.core.Scanner;
 import de.texturepackbuilder.core.Selection;
 import net.minecraft.client.Minecraft;
 import net.minecraft.network.chat.Component;
+import net.minecraft.server.packs.repository.PackRepository;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 
-/** Gemeinsamer Zustand aller Bildschirme: Scannen, Bauen, Importieren, Statuszeile. */
+/** Gemeinsamer Zustand aller Bildschirme: Scannen, Bauen, Anwenden, Importieren, PvP-Download, Statuszeile. */
 final class Session {
+    /** Größte Datei, die der automatische PvP-Download lädt. */
+    private static final long MAX_AUTO_BYTES = 40L * 1024 * 1024;
+
     static Component status = Component.translatable("tpb.status.ready");
     static boolean busy = false;
+    static boolean fetching = false;
     static boolean needsRescan = false;
 
     private Session() {}
@@ -75,19 +86,22 @@ final class Session {
         }));
     }
 
-    static void build(String packName) {
+    /** Baut das Pack. Mit enable=true wird es danach aktiviert und Minecraft lädt die Ressourcen neu. */
+    static void build(String packName, boolean enable) {
         TextureIndex idx = index();
         if (idx == null || busy) return;
-        if (Selection.chosen.isEmpty()) {
+        if (Selection.chosen.isEmpty() && Selection.models.isEmpty()) {
             status = Component.translatable("tpb.status.nothing_selected");
             return;
         }
         busy = true;
         status = Component.translatable("tpb.status.building");
         Minecraft mc = Minecraft.getInstance();
+        Map<String, String> chosen = new LinkedHashMap<>(Selection.chosen);
+        Map<String, String> models = new LinkedHashMap<>(Selection.models);
         CompletableFuture.supplyAsync(() -> {
             try {
-                return Exporter.export(idx, Selection.chosen, packName);
+                return Exporter.export(idx, chosen, models, packName);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -96,11 +110,93 @@ final class Session {
             if (err != null) {
                 status = Component.translatable("tpb.status.build_error", reason(err));
                 TexturePackBuilder.LOG.error("Export fehlgeschlagen", err);
+            } else if (enable) {
+                enablePack(res.folderName(), res.textures());
             } else {
-                status = Component.translatable("tpb.status.built", res.textures(), res.file().getFileName().toString());
+                status = Component.translatable("tpb.status.built", res.textures(), res.folderName());
             }
             refreshScreen();
         }));
+    }
+
+    /** Aktiviert das gebaute Pack ganz oben in der Pack-Liste und lädt die Ressourcen neu. */
+    private static void enablePack(String folder, int textures) {
+        Minecraft mc = Minecraft.getInstance();
+        try {
+            PackRepository repo = mc.getResourcePackRepository();
+            repo.reload();
+            String id = "file/" + folder;
+            if (repo.getPack(id) == null) {
+                status = Component.translatable("tpb.status.enable_error", folder);
+                return;
+            }
+            List<String> ids = new ArrayList<>(repo.getSelectedIds());
+            ids.remove(id);
+            ids.add(id); // zuletzt = höchste Priorität
+            repo.setSelected(ids);
+            mc.options.updateResourcePacks(repo);
+            Selection.dirty = false;
+            status = Component.translatable("tpb.status.applied", textures, folder);
+        } catch (Exception e) {
+            TexturePackBuilder.LOG.error("Pack konnte nicht aktiviert werden", e);
+            status = Component.translatable("tpb.status.enable_error", folder);
+        }
+    }
+
+    /**
+     * Holt automatisch PvP-Packs von Modrinth für die angegebenen Items
+     * (pro Item die beliebtesten passenden Packs für 1.21.11, max. 40 MB pro Datei).
+     */
+    static void fetchPvpPacks(List<Item> items, int perItem) {
+        if (fetching || items.isEmpty()) return;
+        fetching = true;
+        status = Component.translatable("tpb.status.fetch_search");
+        Minecraft mc = Minecraft.getInstance();
+        CompletableFuture.runAsync(() -> {
+            Map<String, ModrinthClient.Hit> todo = new LinkedHashMap<>();
+            Set<String> have = ModrinthClient.listDownloads();
+            for (Item it : items) {
+                for (String term : it.search()) {
+                    try {
+                        int added = 0;
+                        for (ModrinthClient.Hit h : ModrinthClient.search(term, "downloads", null, 0, perItem + 2).join().hits()) {
+                            if (added >= perItem) break;
+                            if (ModrinthClient.isDownloaded(h.slug(), have) || todo.containsKey(h.id())) continue;
+                            todo.put(h.id(), h);
+                            added++;
+                        }
+                        if (added > 0) break;
+                    } catch (Exception e) {
+                        TexturePackBuilder.LOG.warn("Suche nach {} fehlgeschlagen", term, e);
+                    }
+                }
+            }
+            int i = 0, ok = 0, skipped = 0;
+            for (ModrinthClient.Hit h : todo.values()) {
+                i++;
+                int n = i, total = todo.size();
+                mc.execute(() -> status = Component.translatable("tpb.status.fetch_progress", n, total, h.title()));
+                try {
+                    ModrinthClient.download(h, MAX_AUTO_BYTES).join();
+                    ok++;
+                } catch (Exception e) {
+                    skipped++;
+                }
+            }
+            int okF = ok, skippedF = skipped;
+            mc.execute(() -> {
+                fetching = false;
+                status = Component.translatable("tpb.status.fetch_done", okF, skippedF);
+                if (okF > 0) scan();
+                refreshScreen();
+            });
+        }, TexturePackBuilder.EXEC).exceptionally(err -> {
+            mc.execute(() -> {
+                fetching = false;
+                status = Component.translatable("tpb.status.import_error", reason(err));
+            });
+            return null;
+        });
     }
 
     static void importFiles(List<Path> files) {

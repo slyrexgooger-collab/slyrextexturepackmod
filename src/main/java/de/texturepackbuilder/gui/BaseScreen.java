@@ -16,7 +16,7 @@ import java.util.List;
  */
 public abstract class BaseScreen extends Screen {
     public enum Tab {
-        TEXTURES("tpb.tab.textures"), PACKS("tpb.tab.packs"), MODRINTH("tpb.tab.modrinth");
+        PVP("tpb.tab.pvp"), TEXTURES("tpb.tab.textures"), PACKS("tpb.tab.packs"), MODRINTH("tpb.tab.modrinth");
 
         final String key;
 
@@ -41,7 +41,7 @@ public abstract class BaseScreen extends Screen {
 
     @Override
     protected void init() {
-        int w = width < 480 ? 66 : 84;
+        int w = width < 520 ? 58 : 78;
         int x = width - 8 - Tab.values().length * (w + 2) + 2;
         for (Tab t : Tab.values()) {
             MutableComponent label = Component.translatable(t.key);
@@ -55,6 +55,7 @@ public abstract class BaseScreen extends Screen {
     private void switchTo(Tab t) {
         if (t == tab) return;
         minecraft.setScreen(switch (t) {
+            case PVP -> new ItemsScreen(root);
             case TEXTURES -> new TexturesScreen(root);
             case PACKS -> new PacksScreen(root);
             case MODRINTH -> new ModrinthScreen(root);

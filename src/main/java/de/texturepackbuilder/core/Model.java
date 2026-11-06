@@ -28,7 +28,7 @@ public final class Model {
     }
 
     /** Ein Quell-Pack: ZIP-Datei oder entpackter Ordner. */
-    public record SourcePack(String name, Path location, boolean zip, Origin origin) {
+    public record SourcePack(String name, Path location, boolean zip, Origin origin, long modified) {
         /** Nur Packs, die die Mod selbst angelegt hat, dürfen im Spiel gelöscht werden. */
         public boolean deletable() {
             return zip && origin != Origin.LOCAL;
@@ -90,6 +90,9 @@ public final class Model {
         }
     }
 
+    /** Modell-Dateien eines Packs für ein Item (Item-Definition, Modelle, deren Texturen) und ihr Fingerabdruck. */
+    public record Bundle(Set<String> files, String hash) {}
+
     /** Ergebnis eines Scans über alle Packs. */
     public static final class TextureIndex {
         public static volatile TextureIndex current;
@@ -100,6 +103,14 @@ public final class Model {
         public int duplicatesRemoved;
         public int sameAsVanilla;
         public int unreadable;
+
+        /** Modelle (3D-Packs) pro PvP-Item und Pack: alle Dateien, die mitkopiert werden müssen. */
+        public final Map<String, Map<SourcePack, Bundle>> bundles = new java.util.HashMap<>();
+
+        public SourcePack packByName(String name) {
+            for (SourcePack p : packs) if (p.name().equals(name)) return p;
+            return null;
+        }
 
         public TextureIndex(List<SourcePack> packs) {
             this.packs = packs;
