@@ -139,5 +139,7 @@
   "tpb.status.enable_error": "Built \"%s\" but couldn't enable it automatically – please turn it on in the resource pack menu.",
   "tpb.status.fetch_search": "Searching Modrinth for PvP packs …",
   "tpb.status.fetch_progress": "Downloading PvP pack %s/%s: %s …",
-  "tpb.status.fetch_done": "Downloaded %s PvP packs, skipped %s (too large or unavailable)."
+  "tpb.status.fetch_done": "Downloaded %s PvP packs, skipped %s (too large or unavailable).",
+  "key.texturepackbuilder.open": "Open Pack Builder",
+  "key.category.texturepackbuilder.main": "Texture Pack Builder"
 }
