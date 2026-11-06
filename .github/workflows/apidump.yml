@@ -1,0 +1,44 @@
+name: API-Dump
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/apidump.yml'
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '9.2.1'
+      - run: gradle compileJava --no-daemon -q
+      - name: Klassen auslesen
+        run: |
+          JAR=$(find ~/.gradle/caches .gradle -name "minecraft-*1.21.11*.jar" 2>/dev/null | grep -v sources | xargs ls -S | head -1)
+          echo "JAR=$JAR"
+          for c in net.minecraft.client.renderer.texture.TextureAtlas \
+                   net.minecraft.client.renderer.texture.TextureAtlasSprite \
+                   net.minecraft.client.renderer.texture.SpriteContents \
+                   net.minecraft.client.renderer.texture.TextureManager \
+                   net.minecraft.client.renderer.texture.AbstractTexture \
+                   net.minecraft.client.resources.model.AtlasManager \
+                   net.minecraft.data.AtlasIds \
+                   net.minecraft.client.renderer.texture.atlas.AtlasIds \
+                   com.mojang.blaze3d.systems.CommandEncoder \
+                   com.mojang.blaze3d.systems.GpuDevice \
+                   com.mojang.blaze3d.textures.GpuTexture \
+                   net.minecraft.server.packs.resources.ResourceManager \
+                   net.minecraft.server.packs.resources.Resource; do
+            echo "=== $c"; javap -p -cp "$JAR" "$c" 2>&1 | grep -v "lambda\$" | head -80
+          done
+          echo "=== Minecraft (atlas/texture/resource)"
+          javap -p -cp "$JAR" net.minecraft.client.Minecraft | grep -iE "atlas|texturemanager|resourcemanager|modelmanager|reloadResource" 
+          echo "=== Atlas-Klassen"
+          unzip -l "$JAR" | grep -iE "Atlas[A-Za-z]*\.class" | awk '{print $4}'
