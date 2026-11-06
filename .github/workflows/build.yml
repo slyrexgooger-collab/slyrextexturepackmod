@@ -4,6 +4,9 @@ on:
   push:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -23,3 +26,12 @@ jobs:
         with:
           name: texturepackbuilder
           path: build/libs/*.jar
+      - name: Als Release veröffentlichen
+        if: github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          JAR=$(ls build/libs/*.jar | grep -v -- '-sources' | head -1)
+          gh release delete latest --yes --cleanup-tag || true
+          gh release create latest "$JAR" --title "Texture Pack Builder (neueste Version)" \
+            --notes "Automatisch gebaut aus ${GITHUB_SHA::7}. Die .jar zusammen mit der Fabric API in den mods-Ordner legen (Minecraft 1.21.11)." --latest
