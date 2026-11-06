@@ -15,6 +15,10 @@ Aufgebaut wie ein Texture-Manager:
   Abzeichen: **NEU** (Pack jünger als 7 Tage), **3D** (Pack ändert Modelle – werden mitkopiert).
 - **⬇ PvP-Packs holen** lädt für jedes Item des Modus die beliebtesten passenden Packs von Modrinth (max. 40 MB je Pack).
 - **✔ Anwenden** baut das Pack, aktiviert es ganz oben und lädt die Ressourcen neu – sofort im Spiel sichtbar.
+  Mit **Sofort anwenden** (Standard: an) passiert das automatisch kurz nach jedem Klick.
+- Die Auswahl merkt sich pro Item das **Pack**, nicht einzelne Bilder. Nach Pack-Updates (**⟳ Updates prüfen** im
+  Packs-Tab) oder Neu-Scans gilt automatisch die neue Version. Fehlt ein Pack, steht „Pack fehlt“ – die Auswahl bleibt
+  gespeichert und greift wieder, sobald das Pack zurück ist.
 
 Die Item-Liste steht in `src/main/resources/assets/texturepackbuilder/pvp_items.json` und kann erweitert werden.
 Der GitHub-Workflow „PvP-Abdeckung prüfen“ zeigt, wie viele Modrinth-Packs es pro Item gibt.
