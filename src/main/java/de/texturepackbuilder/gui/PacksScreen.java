@@ -9,7 +9,7 @@ import de.texturepackbuilder.core.Model.Variant;
 import de.texturepackbuilder.core.PackIO;
 import de.texturepackbuilder.core.Selection;
 import net.minecraft.ChatFormatting;
-import net.minecraft.Util;
+import net.minecraft.util.Util;
 import net.minecraft.client.gui.GuiGraphics;
 import net.minecraft.client.gui.components.Button;
 import net.minecraft.client.gui.screens.Screen;
