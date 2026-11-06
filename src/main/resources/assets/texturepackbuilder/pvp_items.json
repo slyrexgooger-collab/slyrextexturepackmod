@@ -1,0 +1,47 @@
+{
+  "_comment": "Katalog der PvP-Items. match = Regex auf den Pfad ab textures/ ohne .png (nur Namespace minecraft). icon = Kandidaten für das Vorschaubild. search = Suchbegriffe für Modrinth. name = Übersetzungsschlüssel (Vanilla- oder Mod-Schlüssel).",
+  "items": [
+    {"id": "crystal",    "group": "collection", "name": "item.minecraft.end_crystal",          "icon": ["item/end_crystal"],               "match": "item/end_crystal|entity/end_crystal/.*",                                   "search": ["end crystal", "crystal pvp"]},
+    {"id": "anchor",     "group": "collection", "name": "block.minecraft.respawn_anchor",      "icon": ["block/respawn_anchor_side4", "block/respawn_anchor_top"], "match": "block/respawn_anchor_.*",                                  "search": ["respawn anchor", "anchor"]},
+    {"id": "obsidian",   "group": "collection", "name": "block.minecraft.obsidian",            "icon": ["block/obsidian"],                 "match": "block/(crying_)?obsidian",                                                 "search": ["obsidian"]},
+    {"id": "glowstone",  "group": "collection", "name": "block.minecraft.glowstone",           "icon": ["block/glowstone"],                "match": "block/glowstone|item/glowstone_dust",                                       "search": ["glowstone"]},
+    {"id": "totem",      "group": "collection", "name": "item.minecraft.totem_of_undying",     "icon": ["item/totem_of_undying"],          "match": "item/totem_of_undying",                                                    "search": ["totem", "totem of undying"]},
+    {"id": "pearl",      "group": "collection", "name": "item.minecraft.ender_pearl",          "icon": ["item/ender_pearl"],               "match": "item/ender_pearl",                                                         "search": ["ender pearl", "pearl"]},
+    {"id": "gapple",     "group": "collection", "name": "item.minecraft.golden_apple",         "icon": ["item/golden_apple"],              "match": "item/(enchanted_)?golden_apple",                                           "search": ["golden apple", "gapple"]},
+    {"id": "sword",      "group": "collection", "name": "tpb.item.sword",                      "icon": ["item/netherite_sword", "item/diamond_sword"], "match": "item/[a-z_]+_sword",                                         "search": ["pvp sword", "short sword"]},
+    {"id": "axe",        "group": "collection", "name": "tpb.item.axe",                        "icon": ["item/netherite_axe", "item/diamond_axe"],     "match": "item/[a-z_]+_axe",                                           "search": ["pvp axe", "axe"]},
+    {"id": "mace",       "group": "collection", "name": "item.minecraft.mace",                 "icon": ["item/mace"],                      "match": "item/mace.*|entity/mace.*",                                                "search": ["mace"]},
+    {"id": "windcharge", "group": "collection", "name": "item.minecraft.wind_charge",          "icon": ["item/wind_charge"],               "match": "item/wind_charge|entity/projectiles/wind_charge",                          "search": ["wind charge"]},
+    {"id": "spear",      "group": "collection", "name": "tpb.item.spear",                      "icon": ["item/netherite_spear", "item/diamond_spear", "item/iron_spear"], "match": "item/[a-z_]+_spear.*|entity/spear.*",     "search": ["spear"]},
+    {"id": "trident",    "group": "collection", "name": "item.minecraft.trident",              "icon": ["item/trident"],                   "match": "item/trident.*|entity/trident.*",                                          "search": ["trident"]},
+    {"id": "armor",      "group": "collection", "name": "tpb.item.armor",                      "icon": ["item/netherite_chestplate", "item/diamond_chestplate"], "match": "item/[a-z_]+_(helmet|chestplate|leggings|boots)|entity/equipment/humanoid(_leggings)?/.*", "search": ["pvp armor", "armor"]},
+    {"id": "shield",     "group": "collection", "name": "item.minecraft.shield",               "icon": ["entity/shield/base_nopattern", "entity/shield_base_nopattern", "entity/shield/base"], "match": "entity/shield.*",   "search": ["shield"]},
+    {"id": "bow",        "group": "collection", "name": "tpb.item.bow",                        "icon": ["item/bow"],                       "match": "item/bow.*|item/(tipped_|spectral_)?arrow.*|entity/projectiles/(tipped_|spectral_)?arrow", "search": ["bow", "arrow"]},
+    {"id": "crossbow",   "group": "collection", "name": "item.minecraft.crossbow",             "icon": ["item/crossbow_standby", "item/crossbow"], "match": "item/crossbow.*",                                              "search": ["crossbow"]},
+
+    {"id": "potions",    "group": "extras", "name": "tpb.item.potions",                       "icon": ["item/splash_potion", "item/potion"], "match": "item/(splash_|lingering_)?potion.*",                                  "search": ["pvp potion", "potion"]},
+    {"id": "xp",         "group": "extras", "name": "item.minecraft.experience_bottle",       "icon": ["item/experience_bottle"],         "match": "item/experience_bottle",                                                   "search": ["xp bottle", "experience bottle"]},
+    {"id": "cobweb",     "group": "extras", "name": "block.minecraft.cobweb",                 "icon": ["block/cobweb"],                   "match": "block/cobweb",                                                             "search": ["cobweb"]},
+    {"id": "fire",       "group": "extras", "name": "tpb.item.fire",                          "icon": ["block/fire_0"],                   "match": "block/(soul_)?fire_[01]",                                                  "search": ["low fire"]},
+    {"id": "buckets",    "group": "extras", "name": "tpb.item.buckets",                       "icon": ["item/lava_bucket"],               "match": "item/(lava|water)_bucket",                                                 "search": ["bucket"]},
+    {"id": "rod",        "group": "extras", "name": "item.minecraft.fishing_rod",             "icon": ["item/fishing_rod"],               "match": "item/fishing_rod.*",                                                       "search": ["fishing rod"]},
+    {"id": "elytra",     "group": "extras", "name": "item.minecraft.elytra",                  "icon": ["item/elytra"],                    "match": "item/elytra.*|entity/equipment/wings/elytra",                              "search": ["elytra"]},
+    {"id": "firework",   "group": "extras", "name": "item.minecraft.firework_rocket",         "icon": ["item/firework_rocket"],           "match": "item/firework_.*",                                                         "search": ["firework"]},
+    {"id": "food",       "group": "extras", "name": "tpb.item.food",                          "icon": ["item/cooked_beef"],               "match": "item/(cooked_beef|cooked_porkchop|golden_carrot|bread|steak)",             "search": ["pvp food"]},
+    {"id": "hud",        "group": "extras", "name": "tpb.item.hud",                           "icon": ["gui/sprites/hud/heart/full", "gui/sprites/hud/hotbar"], "match": "gui/sprites/hud/(?!crosshair).*",            "search": ["pvp hud", "hearts", "hotbar"]},
+    {"id": "crosshair",  "group": "extras", "name": "tpb.item.crosshair",                     "icon": ["gui/sprites/hud/crosshair"],      "match": "gui/sprites/hud/crosshair.*",                                              "search": ["crosshair"]},
+    {"id": "particles",  "group": "extras", "name": "tpb.item.particles",                     "icon": ["particle/critical_hit", "particle/enchanted_hit"], "match": "particle/(critical_hit|enchanted_hit|sweep_\\d+|damage)", "search": ["pvp particles", "particles"]}
+  ],
+  "modes": [
+    {"id": "all"},
+    {"id": "crystal",   "items": ["crystal", "anchor", "obsidian", "glowstone", "totem", "pearl", "gapple", "sword", "axe", "armor", "shield", "potions", "xp", "cobweb", "hud", "crosshair", "particles"]},
+    {"id": "sword",     "items": ["sword", "armor", "hud", "crosshair", "particles"]},
+    {"id": "axe",       "items": ["axe", "sword", "shield", "armor", "hud", "crosshair", "particles"]},
+    {"id": "uhc",       "items": ["sword", "axe", "bow", "rod", "gapple", "buckets", "cobweb", "shield", "armor", "food", "hud", "crosshair"]},
+    {"id": "pot",       "items": ["sword", "potions", "armor", "food", "pearl", "hud", "crosshair", "particles"]},
+    {"id": "nethpot",   "items": ["sword", "potions", "armor", "totem", "gapple", "pearl", "xp", "food", "hud", "crosshair"]},
+    {"id": "smp",       "items": ["sword", "axe", "mace", "windcharge", "spear", "trident", "armor", "shield", "totem", "pearl", "gapple", "potions", "xp", "cobweb", "bow", "crossbow", "elytra", "firework", "fire", "food", "hud", "crosshair"]},
+    {"id": "mace",      "items": ["mace", "windcharge", "elytra", "firework", "totem", "pearl", "sword", "armor", "hud", "crosshair"]},
+    {"id": "spear",     "items": ["spear", "sword", "armor", "shield", "totem", "hud", "crosshair"]}
+  ]
+}
