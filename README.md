@@ -3,7 +3,23 @@
 Client-Mod, mit der du dir aus mehreren Resource Packs dein eigenes Pack zusammenstellst – Textur für Textur.
 Die Oberfläche ist auf **Deutsch und Englisch** (richtet sich nach der Spielsprache).
 
-## Oberfläche
+## PvP-Tab (Startseite)
+Aufgebaut wie ein Texture-Manager:
+- **Links:** alle PvP-Items, aufgeteilt in **Sammlung** (Crystal, Anchor, Obsidian, Glowstone, Totem, Perle, Goldapfel,
+  Schwerter, Äxte, Mace, Windkugel, Speere, Dreizack, Rüstung, Schild, Bogen, Armbrust) und **Extras** (Tränke, XP,
+  Spinnennetz, Feuer, Eimer, Angel, Elytra, Feuerwerk, Essen, HUD & Herzen, Fadenkreuz, Treffer-Partikel).
+  Pro Item: aktueller Style und Anzahl Styles.
+- **Modus:** Alle, Crystal PvP, Sword, Axe, UHC, Pot, Neth Pot, SMP, Mace, Speer – zeigt nur die Items des Modus.
+- **Rechts:** alle Styles des Items als Karten aus allen Packs (gleiche Styles werden zusammengefasst).
+  Filter Alle / Eigene / Modrinth / ★ Favoriten, Sortierung A–Z / Neueste / Älteste, Style-Suche.
+  Abzeichen: **NEU** (Pack jünger als 7 Tage), **3D** (Pack ändert Modelle – werden mitkopiert).
+- **⬇ PvP-Packs holen** lädt für jedes Item des Modus die beliebtesten passenden Packs von Modrinth (max. 40 MB je Pack).
+- **✔ Anwenden** baut das Pack, aktiviert es ganz oben und lädt die Ressourcen neu – sofort im Spiel sichtbar.
+
+Die Item-Liste steht in `src/main/resources/assets/texturepackbuilder/pvp_items.json` und kann erweitert werden.
+Der GitHub-Workflow „PvP-Abdeckung prüfen“ zeigt, wie viele Modrinth-Packs es pro Item gibt.
+
+## Weitere Tabs
 Im Hauptmenü oder im Ressourcenpaket-Menü oben links auf **Pack Builder** klicken. Es gibt drei Tabs:
 
 ### Texturen
