@@ -141,5 +141,13 @@
   "tpb.status.fetch_progress": "Lade PvP-Pack %s/%s: %s …",
   "tpb.status.fetch_done": "%s PvP-Packs geladen, %s übersprungen (zu groß oder nicht verfügbar).",
   "key.texturepackbuilder.open": "Pack Builder öffnen",
-  "key.category.texturepackbuilder.main": "Texture Pack Builder"
+  "key.category.texturepackbuilder.main": "Texture Pack Builder",
+  "tpb.style.missing": "Pack fehlt",
+  "tpb.packs.updates": "⟳ Updates prüfen",
+  "tpb.status.updates_checking": "Prüfe Modrinth-Packs auf Updates …",
+  "tpb.status.updates_none": "Alle Modrinth-Packs sind aktuell.",
+  "tpb.status.updates_done": "%s Pack(s) aktualisiert – deine Auswahl bleibt erhalten.",
+  "tpb.status.apply_queued": "Packs werden gerade eingelesen – wird danach automatisch angewendet.",
+  "tpb.status.style_chosen_auto": "„%s“ für %s gewählt – wird sofort angewendet …",
+  "tpb.auto_apply": "Sofort anwenden"
 }

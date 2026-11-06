@@ -12,6 +12,8 @@ public final class Dirs {
     private Dirs() {}
 
     private static Path gameDir() {
+        String override = System.getProperty("tpb.gameDir"); // für Tests ohne Minecraft
+        if (override != null) return Path.of(override);
         return Minecraft.getInstance().gameDirectory.toPath();
     }
 

@@ -57,6 +57,10 @@ public class ItemsScreen extends BaseScreen {
     private static Sort sort = Sort.NAME;
     private static String query = "";
     private static int listScroll = 0, page = 0;
+    /** Nach jedem Klick automatisch bauen und im Spiel aktivieren. */
+    private static boolean autoApply = true;
+    /** Zeitpunkt für das automatische Anwenden (kurz nach dem letzten Klick, damit schnelle Klicks gesammelt werden). */
+    private static long applyAt = 0;
 
     private int top, bottom, sideW, mainX, mainW, listTop, listBottom, gridTop, gridBottom;
     private final List<Button> rowButtons = new ArrayList<>();
@@ -180,11 +184,15 @@ public class ItemsScreen extends BaseScreen {
 
         // Fußleiste
         int by = height - FOOTER + 4;
-        int doneW = 60, applyW = 96, nameW = width < 560 ? 90 : 130;
+        int doneW = 60, applyW = 96, nameW = width < 560 ? 90 : 130, autoW = 110;
         addRenderableWidget(Button.builder(Component.translatable("tpb.button.done"), b -> onClose())
                 .bounds(width - 8 - doneW, by, doneW, 20).build());
         addRenderableWidget(Button.builder(Component.translatable("tpb.button.apply").withStyle(ChatFormatting.GREEN),
                 b -> Session.build(TexturesScreen.packName, true)).bounds(width - 12 - doneW - applyW, by, applyW, 20).build());
+        addRenderableWidget(Button.builder(autoLabel(), b -> {
+            autoApply = !autoApply;
+            b.setMessage(autoLabel());
+        }).bounds(width - 20 - doneW - applyW - nameW - autoW, by, autoW, 20).build());
         nameBox = addRenderableWidget(new EditBox(font, width - 16 - doneW - applyW - nameW, by + 1, nameW, 18,
                 Component.translatable("tpb.packname.hint")));
         nameBox.setMaxLength(48);
@@ -199,6 +207,21 @@ public class ItemsScreen extends BaseScreen {
         layoutCards();
     }
 
+    private static Component autoLabel() {
+        return autoApply
+                ? Component.literal("✔ ").withStyle(ChatFormatting.GREEN).append(Component.translatable("tpb.auto_apply").withStyle(ChatFormatting.WHITE))
+                : Component.literal("✖ ").withStyle(ChatFormatting.DARK_GRAY).append(Component.translatable("tpb.auto_apply"));
+    }
+
+    @Override
+    public void tick() {
+        super.tick();
+        if (applyAt > 0 && System.currentTimeMillis() >= applyAt) {
+            applyAt = 0;
+            Session.build(TexturesScreen.packName, true);
+        }
+    }
+
     private static Component tab(String key, boolean active) {
         MutableComponent c = Component.translatable(key);
         return active ? c.withStyle(ChatFormatting.YELLOW) : c.withStyle(ChatFormatting.GRAY);
@@ -206,7 +229,7 @@ public class ItemsScreen extends BaseScreen {
 
     @Override
     protected int statusWidth() {
-        return nameBox != null ? nameBox.getX() - 16 : super.statusWidth();
+        return nameBox != null ? nameBox.getX() - 130 : super.statusWidth();
     }
 
     @Override
@@ -263,7 +286,7 @@ public class ItemsScreen extends BaseScreen {
                 if (!mr) return false;
             }
             case FAVORITES -> {
-                if (!Selection.favorites.contains(s.favoriteKey())) return false;
+                if (!s.favorite()) return false;
             }
             default -> {
             }
@@ -331,7 +354,7 @@ public class ItemsScreen extends BaseScreen {
             if (s != null) {
                 // Stern zuerst hinzufügen, damit er Klicks vor der Karte bekommt
                 starButtons.add(addRenderableWidget(Button.builder(Component.empty(), b -> {
-                    Selection.toggleFavorite(s.favoriteKey());
+                    Selection.setFavorite(s.favoriteKeys(), !s.favorite());
                     if (filter == Filter.FAVORITES) {
                         refreshResults();
                         layoutCards();
@@ -339,9 +362,10 @@ public class ItemsScreen extends BaseScreen {
                 }).bounds(x + CARD_W - 14, y + 2, 12, 12).build()));
             }
             cardButtons.add(addRenderableWidget(Button.builder(Component.empty(), b -> {
-                Styles.apply(Session.index(), it, s);
-                Session.status = Component.translatable("tpb.status.style_chosen",
+                Styles.apply(it, s);
+                Session.status = Component.translatable(autoApply ? "tpb.status.style_chosen_auto" : "tpb.status.style_chosen",
                         s == null ? "Vanilla" : s.name(), Component.translatable(it.nameKey()));
+                if (autoApply) applyAt = System.currentTimeMillis() + 900;
             }).bounds(x, y, CARD_W, CARD_H).build()));
             cardStyles.add(s);
         }
@@ -373,6 +397,7 @@ public class ItemsScreen extends BaseScreen {
         String cur = Styles.current(idx, it);
         if (cur.equals(Styles.VANILLA)) return "Vanilla";
         if (cur.equals(Styles.MIXED)) return Component.translatable("tpb.style.mixed").getString();
+        if (cur.equals(Styles.MISSING)) return Component.translatable("tpb.style.missing").getString();
         Style s = Styles.find(idx, it, cur);
         return s == null ? "?" : s.name();
     }
@@ -459,7 +484,7 @@ public class ItemsScreen extends BaseScreen {
             if (s != null && s.has3d()) badge(g, Component.literal("3D"), bx, y + 3, 0xFF8A4FD8);
             if (s != null) {
                 Button sb = starButtons.get(star++);
-                boolean fav = Selection.favorites.contains(s.favoriteKey());
+                boolean fav = s.favorite();
                 g.drawString(font, fav ? "★" : "☆", sb.getX() + 2, sb.getY() + 2, fav ? Theme.BADGE : Theme.DIM);
             }
             if (selected) {

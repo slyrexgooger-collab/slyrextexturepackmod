@@ -50,8 +50,9 @@ public final class ModrinthClient {
     }
 
     /** Wurde von diesem Projekt schon eine Datei heruntergeladen? */
-    public static boolean isDownloaded(String slug, java.util.Set<String> downloadedFiles) {
-        String stem = fileStem(slug);
+    public static boolean isDownloaded(Hit hit, java.util.Set<String> downloadedFiles) {
+        if (DownloadIndex.hasProject(hit.id())) return true;
+        String stem = fileStem(hit.slug());
         for (String f : downloadedFiles) if (f.startsWith(stem) && f.endsWith(".zip")) return true;
         return false;
     }
@@ -140,7 +141,11 @@ public final class ModrinthClient {
             String name = fileStem(hit.slug())
                     + version.get("version_number").getAsString().replaceAll("[^A-Za-z0-9._+-]", "_") + ".zip";
             Path target = Dirs.downloads().resolve(name);
-            if (Files.exists(target)) return CompletableFuture.completedFuture(target);
+            DownloadIndex.Info info = new DownloadIndex.Info(hit.id(), hit.slug(), hit.title(), version.get("id").getAsString());
+            if (Files.exists(target)) {
+                DownloadIndex.put(name, info);
+                return CompletableFuture.completedFuture(target);
+            }
             Path tmp = target.resolveSibling(name + ".part");
             try {
                 Files.createDirectories(target.getParent());
@@ -152,6 +157,7 @@ public final class ModrinthClient {
                     if (r.statusCode() != 200) throw new IOException("Download fehlgeschlagen: HTTP " + r.statusCode());
                     if (sha1 != null && !sha1.equalsIgnoreCase(sha1(tmp))) throw new IOException("Prüfsumme stimmt nicht");
                     Files.move(tmp, target, StandardCopyOption.REPLACE_EXISTING);
+                    DownloadIndex.put(name, info); // ersetzt ältere Versionen desselben Projekts
                     return target;
                 } catch (IOException e) {
                     try {
@@ -162,6 +168,33 @@ public final class ModrinthClient {
                 }
             });
         });
+    }
+
+    /**
+     * Prüft alle heruntergeladenen Packs auf neuere Versionen für die Spielversion und lädt sie.
+     * Ergebnis: Anzahl aktualisierter Packs. Die Auswahl bleibt erhalten, weil das Pack dieselbe ID behält.
+     */
+    public static CompletableFuture<Integer> updateAll() {
+        return CompletableFuture.supplyAsync(() -> {
+            int updated = 0;
+            java.util.Set<String> seen = new java.util.HashSet<>();
+            for (DownloadIndex.Info info : DownloadIndex.load().values()) {
+                if (info.projectId().isEmpty() || !seen.add(info.projectId())) continue;
+                try {
+                    String url = API + "/project/" + info.projectId() + "/version?game_versions="
+                            + enc("[\"" + TexturePackBuilder.GAME_VERSION + "\"]");
+                    JsonArray versions = JsonParser.parseString(getString(url).join()).getAsJsonArray();
+                    if (versions.isEmpty()) continue;
+                    String newest = versions.get(0).getAsJsonObject().get("id").getAsString();
+                    if (newest.equals(info.versionId())) continue;
+                    download(new Hit(info.projectId(), info.slug(), info.title(), "", 0, "", null)).join();
+                    updated++;
+                } catch (Exception e) {
+                    TexturePackBuilder.LOG.warn("Update von {} fehlgeschlagen", info.title(), e);
+                }
+            }
+            return updated;
+        }, TexturePackBuilder.EXEC);
     }
 
     private static JsonObject pickFile(JsonArray files) {

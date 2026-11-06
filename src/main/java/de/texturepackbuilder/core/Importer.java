@@ -40,7 +40,7 @@ public final class Importer {
                     ok.add(stem(out));
                 } else if (name.toLowerCase().endsWith(".zip")) {
                     try (ZipFile z = new ZipFile(f.toFile())) {
-                        String root = findRoot(z);
+                        String root = PackIO.findRoot(z);
                         if (root == null) {
                             bad.add(name);
                             continue;
@@ -58,21 +58,6 @@ public final class Importer {
             }
         }
         return new Result(ok, bad);
-    }
-
-    /** Sucht den Ordner im ZIP, in dem pack.mcmeta liegt ("" = Wurzel, null = keins). */
-    private static String findRoot(ZipFile z) {
-        String best = null;
-        Enumeration<? extends ZipEntry> en = z.entries();
-        while (en.hasMoreElements()) {
-            String n = en.nextElement().getName();
-            if (!n.endsWith("pack.mcmeta")) continue;
-            String prefix = n.substring(0, n.length() - "pack.mcmeta".length());
-            if (!prefix.isEmpty() && !prefix.endsWith("/")) continue;
-            if (prefix.chars().filter(c -> c == '/').count() > 2) continue;
-            if (best == null || prefix.length() < best.length()) best = prefix;
-        }
-        return best;
     }
 
     private static void repack(ZipFile z, String root, Path out) throws IOException {

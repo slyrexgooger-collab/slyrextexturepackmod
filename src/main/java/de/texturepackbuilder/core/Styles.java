@@ -44,8 +44,22 @@ public final class Styles {
             return m;
         }
 
-        public String favoriteKey() {
-            return item.id() + "|" + name();
+        /** Enthält dieser Style das Pack mit dieser ID (auch als zusammengefasstes Duplikat)? */
+        public boolean hasPackId(String id) {
+            if (id == null) return false;
+            for (SourcePack p : packs) if (p.id().equals(id)) return true;
+            return false;
+        }
+
+        public List<String> favoriteKeys() {
+            List<String> out = new ArrayList<>();
+            for (SourcePack p : packs) out.add(item.id() + "|" + p.id());
+            return out;
+        }
+
+        public boolean favorite() {
+            for (String k : favoriteKeys()) if (Selection.favorites.contains(k)) return true;
+            return false;
         }
     }
 
@@ -121,20 +135,22 @@ public final class Styles {
         return new ArrayList<>(byKey.values());
     }
 
-    /** Welcher Style ist gerade gewählt? Ergebnis: VANILLA, MIXED oder der Schlüssel des Styles. */
+    /** Pack des gewählten Styles fehlt (gelöscht oder noch nicht neu eingelesen). */
+    public static final String MISSING = "missing";
+
+    /** Sind für Texturen dieses Items Einzel-Auswahlen gesetzt (Tab "Einzeln")? */
+    private static boolean hasOverrides(Item item) {
+        for (String path : Selection.textures.keySet()) if (PvpCatalog.itemFor(path) == item) return true;
+        return false;
+    }
+
+    /** Welcher Style ist gerade gewählt? Ergebnis: VANILLA, MIXED, MISSING oder der Schlüssel des Styles. */
     public static String current(TextureIndex idx, Item item) {
-        Map<String, String> chosen = new TreeMap<>();
-        for (TextureEntry e : entries(idx, item)) {
-            String h = Selection.chosen.get(e.path);
-            if (h != null) chosen.put(e.path, h);
-        }
-        String model = Selection.models.get(item.id());
-        if (chosen.isEmpty() && model == null) return VANILLA;
-        for (Style s : styles(idx, item)) {
-            String wantModel = s.has3d() ? s.name() : null;
-            if (s.textures().equals(chosen) && java.util.Objects.equals(model, wantModel)) return s.key();
-        }
-        return MIXED;
+        String packId = Selection.items.get(item.id());
+        boolean overrides = hasOverrides(item);
+        if (packId == null) return overrides ? MIXED : VANILLA;
+        for (Style s : styles(idx, item)) if (s.hasPackId(packId)) return overrides ? MIXED : s.key();
+        return MISSING;
     }
 
     public static Style find(TextureIndex idx, Item item, String key) {
@@ -142,14 +158,11 @@ public final class Styles {
         return null;
     }
 
-    /** Wendet einen Style auf ein Item an (null = Vanilla). */
-    public static void apply(TextureIndex idx, Item item, Style style) {
-        for (TextureEntry e : entries(idx, item)) Selection.chosen.remove(e.path);
-        Selection.models.remove(item.id());
-        if (style != null) {
-            Selection.chosen.putAll(style.textures());
-            if (style.has3d()) Selection.models.put(item.id(), style.name());
-        }
+    /** Wendet einen Style auf ein Item an (null = Vanilla). Einzel-Auswahlen für dieses Item werden aufgehoben. */
+    public static void apply(Item item, Style style) {
+        Selection.textures.keySet().removeIf(path -> PvpCatalog.itemFor(path) == item);
+        if (style == null) Selection.items.remove(item.id());
+        else Selection.items.put(item.id(), style.pack().id());
         Selection.save();
     }
 }

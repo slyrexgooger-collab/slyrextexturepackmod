@@ -46,15 +46,42 @@ public final class Scanner {
 
     private static void collect(Path dir, Origin origin, List<SourcePack> out) throws IOException {
         if (!Files.isDirectory(dir)) return;
+        Map<String, DownloadIndex.Info> downloads = origin == Origin.MODRINTH ? DownloadIndex.load() : Map.of();
+        List<Path> files = new ArrayList<>();
         try (DirectoryStream<Path> ds = Files.newDirectoryStream(dir)) {
-            for (Path p : ds) {
-                String file = p.getFileName().toString();
-                long modified = Files.getLastModifiedTime(p).toMillis();
-                if (Files.isRegularFile(p) && file.toLowerCase().endsWith(".zip")) {
-                    out.add(new SourcePack(file.substring(0, file.length() - 4), p, true, origin, modified));
-                } else if (Files.isDirectory(p) && Files.exists(p.resolve("pack.mcmeta"))) {
-                    out.add(new SourcePack(file, p, false, origin, modified));
+            for (Path p : ds) files.add(p);
+        }
+        files.sort(null);
+        for (Path p : files) {
+            String file = p.getFileName().toString();
+            long modified = Files.getLastModifiedTime(p).toMillis();
+            if (Files.isRegularFile(p) && file.toLowerCase().endsWith(".zip")) {
+                String root;
+                try (java.util.zip.ZipFile z = new java.util.zip.ZipFile(p.toFile())) {
+                    root = PackIO.findRoot(z);
+                } catch (IOException e) {
+                    continue; // kaputtes ZIP
                 }
+                if (root == null) continue; // kein Resource Pack
+                String stem = file.substring(0, file.length() - 4);
+                String id, name = stem;
+                switch (origin) {
+                    case MODRINTH -> {
+                        DownloadIndex.Info info = downloads.get(file);
+                        if (info != null && !info.projectId().isEmpty()) {
+                            id = "mr:" + info.projectId();
+                            if (!info.title().isEmpty()) name = info.title();
+                        } else {
+                            id = "mr-file:" + stem;
+                        }
+                    }
+                    case IMPORT -> id = "import:" + stem;
+                    default -> id = "local:" + file;
+                }
+                out.add(new SourcePack(id, name, p, true, origin, modified, root));
+            } else if (Files.isDirectory(p) && Files.exists(p.resolve("pack.mcmeta"))) {
+                String id = (origin == Origin.LOCAL ? "local-dir:" : "dir:") + file;
+                out.add(new SourcePack(id, file, p, false, origin, modified, ""));
             }
         }
     }

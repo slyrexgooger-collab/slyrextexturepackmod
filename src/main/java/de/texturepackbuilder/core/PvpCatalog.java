@@ -74,6 +74,11 @@ public final class PvpCatalog {
         return out;
     }
 
+    public static Item byId(String id) {
+        for (Item i : ITEMS) if (i.id().equals(id)) return i;
+        return null;
+    }
+
     /** Zu welchem PvP-Item gehört ein Texturpfad (oder null)? */
     public static Item itemFor(String path) {
         for (Item i : ITEMS) if (i.matches(path)) return i;

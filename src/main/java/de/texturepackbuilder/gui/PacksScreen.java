@@ -7,6 +7,8 @@ import de.texturepackbuilder.core.Model.TextureEntry;
 import de.texturepackbuilder.core.Model.TextureIndex;
 import de.texturepackbuilder.core.Model.Variant;
 import de.texturepackbuilder.core.PackIO;
+import de.texturepackbuilder.core.PvpCatalog;
+import de.texturepackbuilder.core.Styles;
 import de.texturepackbuilder.core.Selection;
 import net.minecraft.ChatFormatting;
 import net.minecraft.util.Util;
@@ -63,7 +65,10 @@ public class PacksScreen extends BaseScreen {
         x += folder.getWidth() + 4;
         Button rescan = addRenderableWidget(Button.builder(Component.translatable("tpb.packs.rescan"),
                 b -> Session.scan()).bounds(x, top, 90, 20).build());
-        toolbarEnd = x + rescan.getWidth() + 8;
+        x += rescan.getWidth() + 4;
+        Button updates = addRenderableWidget(Button.builder(Component.translatable("tpb.packs.updates"),
+                b -> Session.updatePacks()).bounds(x, top, 110, 20).build());
+        toolbarEnd = x + updates.getWidth() + 8;
 
         prevBtn = addRenderableWidget(Button.builder(Component.literal("◀"), b -> {
             page--;
@@ -146,10 +151,22 @@ public class PacksScreen extends BaseScreen {
         TextureIndex idx = Session.index();
         if (idx == null) return;
         int n = 0;
+        // PvP-Items: ganzen Style des Packs übernehmen (inkl. 3D-Modelle)
+        for (PvpCatalog.Item it : PvpCatalog.ITEMS) {
+            for (Styles.Style s : Styles.styles(idx, it)) {
+                if (s.hasPackId(p.id())) {
+                    Selection.items.put(it.id(), p.id());
+                    Selection.textures.keySet().removeIf(path -> PvpCatalog.itemFor(path) == it);
+                    n += Math.max(1, s.textures().size());
+                }
+            }
+        }
+        // Alle anderen Texturen einzeln
         for (TextureEntry e : idx.entries.values()) {
+            if (PvpCatalog.itemFor(e.path) != null) continue;
             for (Variant v : e.variants) {
                 if (v.hasPack(p)) {
-                    Selection.chosen.put(e.path, v.hash);
+                    Selection.textures.put(e.path, new Selection.Pick(p.id(), v.hash));
                     n++;
                     break;
                 }
@@ -162,14 +179,10 @@ public class PacksScreen extends BaseScreen {
     private void dropAll(SourcePack p) {
         TextureIndex idx = Session.index();
         if (idx == null) return;
-        int n = 0;
-        for (TextureEntry e : idx.entries.values()) {
-            Variant v = e.find(Selection.chosen.get(e.path));
-            if (v != null && v.hasPack(p)) {
-                Selection.chosen.remove(e.path);
-                n++;
-            }
-        }
+        int before = Selection.items.size() + Selection.textures.size();
+        Selection.items.values().removeIf(id -> id.equals(p.id()));
+        Selection.textures.values().removeIf(pick -> pick.pack().equals(p.id()));
+        int n = before - Selection.items.size() - Selection.textures.size();
         Selection.save();
         Session.status = Component.translatable("tpb.status.dropped", n, p.name());
     }

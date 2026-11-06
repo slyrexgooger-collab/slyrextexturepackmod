@@ -4,6 +4,7 @@ import de.texturepackbuilder.core.Model.TextureEntry;
 import de.texturepackbuilder.core.Model.TextureIndex;
 import de.texturepackbuilder.core.Model.Variant;
 import de.texturepackbuilder.core.PackIO;
+import de.texturepackbuilder.core.Resolve;
 import de.texturepackbuilder.core.Search;
 import de.texturepackbuilder.core.Selection;
 import de.texturepackbuilder.core.TextureNames;
@@ -104,9 +105,7 @@ public class TexturesScreen extends BaseScreen {
             rebuildWidgets();
         }).bounds(sideX + 4, y, sideW - 8, 18).build());
         addRenderableWidget(Button.builder(Component.translatable("tpb.button.reset"), b -> {
-            Selection.chosen.clear();
-            Selection.models.clear();
-            Selection.save();
+            Selection.clearAll();
             Session.status = Component.translatable("tpb.status.reset_done");
             refresh();
             layoutGrid();
@@ -272,8 +271,13 @@ public class TexturesScreen extends BaseScreen {
 
     private void choose(Variant v) {
         if (focused == null) return;
-        if (v == null) Selection.chosen.remove(focused);
-        else Selection.chosen.put(focused, v.hash);
+        Selection.textures.remove(focused);
+        if (v != null) {
+            Selection.textures.put(focused, new Selection.Pick(v.primary().pack().id(), v.hash));
+        } else if (Resolve.variant(Session.index(), focused) != null) {
+            // Item-Style würde hier greifen → Vanilla ausdrücklich erzwingen
+            Selection.textures.put(focused, new Selection.Pick(Selection.Pick.VANILLA, ""));
+        }
         Selection.save();
         if (onlySelected) {
             refresh();
@@ -306,7 +310,7 @@ public class TexturesScreen extends BaseScreen {
         for (int i = 0; i < gridButtons.size(); i++) {
             Button b = gridButtons.get(i);
             TextureEntry e = gridEntries.get(i);
-            Variant v = e.find(Selection.chosen.get(e.path));
+            Variant v = Resolve.variant(idx, e.path);
             PreviewCache.Tex t = preview(e.path, v);
             if (t != null) PreviewCache.draw(g, t, b.getX() + 4, b.getY() + 4, TILE - 8);
             if (v != null) Theme.outline(g, b.getX(), b.getY(), TILE, TILE, Theme.ACCENT);
@@ -326,7 +330,7 @@ public class TexturesScreen extends BaseScreen {
         } else if (idx == null) {
             info = Component.translatable("tpb.grid.noscan");
         } else {
-            info = Component.translatable("tpb.grid.info", results.size(), Selection.chosen.size());
+            info = Component.translatable("tpb.grid.info", results.size(), Selection.textures.size() + Selection.items.size());
         }
         Theme.text(g, font, info, centerX, top + 23, centerW, hovered != null ? Theme.TEXT : Theme.MUTED);
 
@@ -354,7 +358,7 @@ public class TexturesScreen extends BaseScreen {
         // Welche Variante zeigen? Die überfahrene, sonst die gewählte.
         int hoverIdx = -1;
         for (int i = 0; i < variantButtons.size(); i++) if (variantButtons.get(i).isHovered()) hoverIdx = i;
-        Variant chosen = e.find(Selection.chosen.get(e.path));
+        Variant chosen = Resolve.variant(Session.index(), e.path);
         Variant shown = hoverIdx >= 0 ? variantOptions.get(hoverIdx) : chosen;
 
         int px = detailX + (detailW - previewSize) / 2, py = top + 30;

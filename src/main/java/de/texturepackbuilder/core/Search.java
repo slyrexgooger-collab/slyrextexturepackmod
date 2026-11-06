@@ -52,7 +52,7 @@ public final class Search {
         for (TextureEntry e : idx.entries.values()) {
             if (o.category() != Category.ALL && TextureNames.category(e.path) != o.category()) continue;
             if (o.onlyMultiple() && e.variants.size() < 2) continue;
-            if (o.onlySelected() && !Selection.chosen.containsKey(e.path)) continue;
+            if (o.onlySelected() && !Resolve.isCustom(idx, e.path)) continue;
             if (!packFilters.isEmpty() && !matchesPacks(e, packFilters)) continue;
 
             String display = TextureNames.displayName(e.path);

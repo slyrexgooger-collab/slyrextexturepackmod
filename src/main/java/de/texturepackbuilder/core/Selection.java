@@ -15,33 +15,64 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 
 /**
- * Die Auswahl des Spielers: Texturpfad → Hash der gewählten Variante (fehlt ein Pfad, bleibt Vanilla),
- * dazu die Favoriten (Item|Pack).
+ * Die Auswahl des Spielers – robust gegen Updates:
+ * - items: PvP-Item → Pack-ID. Es wird das Pack gemerkt, nicht einzelne Bilder. Wird das Pack
+ *   aktualisiert, gelten automatisch dessen neue Texturen und Modelle.
+ * - textures: einzelne Textur → Pick (Pack-ID + Hash als Reserve), aus dem Tab "Einzeln".
+ *   Pack "vanilla" erzwingt die Originaltextur.
  */
 public final class Selection {
-    public static final Map<String, String> chosen = new TreeMap<>();
+    public record Pick(String pack, String hash) {
+        public static final String VANILLA = "vanilla";
+
+        public boolean vanilla() {
+            return VANILLA.equals(pack);
+        }
+    }
+
+    private static final int VERSION = 3;
+
+    public static final Map<String, String> items = new TreeMap<>();
+    public static final Map<String, Pick> textures = new TreeMap<>();
     public static final Set<String> favorites = new TreeSet<>();
-    /** PvP-Item → Name des Packs, dessen 3D-Modelle mitkopiert werden. */
-    public static final Map<String, String> models = new TreeMap<>();
     /** Wurde seit dem letzten "Anwenden" etwas geändert? */
     public static boolean dirty = false;
     private static boolean loaded;
 
     private Selection() {}
 
+    public static boolean isEmpty() {
+        return items.isEmpty() && textures.isEmpty();
+    }
+
+    public static void clearAll() {
+        items.clear();
+        textures.clear();
+        save();
+    }
+
     public static void load() {
         if (loaded) return;
         loaded = true;
-        Path f = Dirs.selectionFile();
-        if (!Files.exists(f)) return;
         try {
+            Path f = Dirs.selectionFile();
+            if (!Files.exists(f)) return;
             JsonObject obj = JsonParser.parseString(Files.readString(f)).getAsJsonObject();
-            JsonObject sel = obj.has("selection") ? obj.getAsJsonObject("selection") : obj; // altes Format
-            for (Map.Entry<String, JsonElement> e : sel.entrySet()) {
-                if (e.getValue().isJsonPrimitive()) chosen.put(e.getKey(), e.getValue().getAsString());
+            if (obj.has("version") && obj.get("version").getAsInt() >= VERSION) {
+                for (Map.Entry<String, JsonElement> e : obj.getAsJsonObject("items").entrySet())
+                    items.put(e.getKey(), e.getValue().getAsString());
+                for (Map.Entry<String, JsonElement> e : obj.getAsJsonObject("textures").entrySet()) {
+                    JsonObject p = e.getValue().getAsJsonObject();
+                    textures.put(e.getKey(), new Pick(p.get("pack").getAsString(),
+                            p.has("hash") ? p.get("hash").getAsString() : ""));
+                }
+            } else {
+                // Altes Format: Pfad → Hash. Wird als Einzel-Auswahl übernommen (Pack unbekannt, nur Hash).
+                JsonObject sel = obj.has("selection") ? obj.getAsJsonObject("selection") : obj;
+                for (Map.Entry<String, JsonElement> e : sel.entrySet()) {
+                    if (e.getValue().isJsonPrimitive()) textures.put(e.getKey(), new Pick("", e.getValue().getAsString()));
+                }
             }
-            if (obj.has("models")) for (Map.Entry<String, JsonElement> e : obj.getAsJsonObject("models").entrySet())
-                models.put(e.getKey(), e.getValue().getAsString());
             if (obj.has("favorites")) for (JsonElement e : obj.getAsJsonArray("favorites")) favorites.add(e.getAsString());
         } catch (Exception e) {
             TexturePackBuilder.LOG.warn("Auswahl konnte nicht geladen werden", e);
@@ -51,16 +82,22 @@ public final class Selection {
     public static void save() {
         dirty = true;
         try {
-            JsonObject sel = new JsonObject();
-            chosen.forEach(sel::addProperty);
+            JsonObject obj = new JsonObject();
+            obj.addProperty("version", VERSION);
+            JsonObject it = new JsonObject();
+            items.forEach(it::addProperty);
+            obj.add("items", it);
+            JsonObject tex = new JsonObject();
+            for (Map.Entry<String, Pick> e : textures.entrySet()) {
+                JsonObject p = new JsonObject();
+                p.addProperty("pack", e.getValue().pack());
+                p.addProperty("hash", e.getValue().hash());
+                tex.add(e.getKey(), p);
+            }
+            obj.add("textures", tex);
             JsonArray fav = new JsonArray();
             favorites.forEach(fav::add);
-            JsonObject obj = new JsonObject();
-            obj.add("selection", sel);
             obj.add("favorites", fav);
-            JsonObject mod = new JsonObject();
-            models.forEach(mod::addProperty);
-            obj.add("models", mod);
             Path f = Dirs.selectionFile();
             Files.createDirectories(f.getParent());
             Files.writeString(f, new GsonBuilder().setPrettyPrinting().create().toJson(obj));
@@ -69,12 +106,14 @@ public final class Selection {
         }
     }
 
-    public static boolean toggleFavorite(String key) {
-        boolean wasDirty = dirty; // Favoriten ändern das Pack nicht
-        boolean now = !favorites.remove(key);
-        if (now) favorites.add(key);
+    /** Favoriten ändern das Pack nicht, deshalb bleibt "dirty" unverändert. */
+    public static void setFavorite(Iterable<String> keys, boolean on) {
+        boolean wasDirty = dirty;
+        for (String k : keys) {
+            if (on) favorites.add(k);
+            else favorites.remove(k);
+        }
         save();
         dirty = wasDirty;
-        return now;
     }
 }

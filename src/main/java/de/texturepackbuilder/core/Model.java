@@ -27,8 +27,12 @@ public final class Model {
         }
     }
 
-    /** Ein Quell-Pack: ZIP-Datei oder entpackter Ordner. */
-    public record SourcePack(String name, Path location, boolean zip, Origin origin, long modified) {
+    /**
+     * Ein Quell-Pack: ZIP-Datei oder entpackter Ordner.
+     * id bleibt über Updates gleich (Modrinth: Projekt-ID statt Dateiname) – darüber merkt sich die Auswahl das Pack.
+     * root = Unterordner im ZIP, in dem pack.mcmeta liegt ("" = Wurzel).
+     */
+    public record SourcePack(String id, String name, Path location, boolean zip, Origin origin, long modified, String root) {
         /** Nur Packs, die die Mod selbst angelegt hat, dürfen im Spiel gelöscht werden. */
         public boolean deletable() {
             return zip && origin != Origin.LOCAL;
@@ -63,8 +67,14 @@ public final class Model {
         }
 
         public boolean hasPack(SourcePack p) {
-            for (SourceRef r : sources) if (r.pack().equals(p)) return true;
-            return false;
+            return refFor(p) != null;
+        }
+
+        /** Fundstelle dieser Variante in einem bestimmten Pack (oder null). */
+        public SourceRef refFor(SourcePack p) {
+            if (p == null) return null;
+            for (SourceRef r : sources) if (r.pack().id().equals(p.id())) return r;
+            return null;
         }
 
         public String sourceNames() {
@@ -107,8 +117,9 @@ public final class Model {
         /** Modelle (3D-Packs) pro PvP-Item und Pack: alle Dateien, die mitkopiert werden müssen. */
         public final Map<String, Map<SourcePack, Bundle>> bundles = new java.util.HashMap<>();
 
-        public SourcePack packByName(String name) {
-            for (SourcePack p : packs) if (p.name().equals(name)) return p;
+        public SourcePack packById(String id) {
+            if (id == null) return null;
+            for (SourcePack p : packs) if (p.id().equals(id)) return p;
             return null;
         }
 

@@ -6,6 +6,7 @@ import de.texturepackbuilder.core.Importer;
 import de.texturepackbuilder.core.Model.SourcePack;
 import de.texturepackbuilder.core.Model.TextureIndex;
 import de.texturepackbuilder.core.ModrinthClient;
+import de.texturepackbuilder.core.Resolve;
 import de.texturepackbuilder.core.PvpCatalog.Item;
 import de.texturepackbuilder.core.Scanner;
 import de.texturepackbuilder.core.Selection;
@@ -33,6 +34,8 @@ final class Session {
     static boolean busy = false;
     static boolean fetching = false;
     static boolean needsRescan = false;
+    /** "Anwenden" wurde gedrückt, während eingelesen wurde → danach automatisch ausführen. */
+    private static String pendingApply = null;
 
     private Session() {}
 
@@ -82,26 +85,36 @@ final class Session {
                         idx.duplicatesRemoved, idx.sameAsVanilla);
             }
             refreshScreen();
-            if (needsRescan) scan();
+            if (needsRescan) {
+                scan();
+            } else if (pendingApply != null) {
+                String name = pendingApply;
+                pendingApply = null;
+                build(name, true);
+            }
         }));
     }
 
     /** Baut das Pack. Mit enable=true wird es danach aktiviert und Minecraft lädt die Ressourcen neu. */
     static void build(String packName, boolean enable) {
         TextureIndex idx = index();
-        if (idx == null || busy) return;
-        if (Selection.chosen.isEmpty() && Selection.models.isEmpty()) {
+        if (idx == null || busy) {
+            // nicht verwerfen, sondern nach dem Einlesen nachholen
+            if (enable) pendingApply = packName;
+            status = Component.translatable("tpb.status.apply_queued");
+            return;
+        }
+        if (Selection.isEmpty() && !hasOwnPackEnabled(packName)) {
             status = Component.translatable("tpb.status.nothing_selected");
             return;
         }
         busy = true;
         status = Component.translatable("tpb.status.building");
         Minecraft mc = Minecraft.getInstance();
-        Map<String, String> chosen = new LinkedHashMap<>(Selection.chosen);
-        Map<String, String> models = new LinkedHashMap<>(Selection.models);
+        Map<String, Resolve.Src> plan = Resolve.plan(idx); // auf dem Hauptthread gegen den aktuellen Scan auflösen
         CompletableFuture.supplyAsync(() -> {
             try {
-                return Exporter.export(idx, chosen, models, packName);
+                return Exporter.export(plan, packName);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -116,7 +129,22 @@ final class Session {
                 status = Component.translatable("tpb.status.built", res.textures(), res.folderName());
             }
             refreshScreen();
+            if (pendingApply != null) { // während des Bauens erneut gewählt → mit neuer Auswahl nochmal
+                String name = pendingApply;
+                pendingApply = null;
+                build(name, true);
+            }
         }));
+    }
+
+    /** Ist unser gebautes Pack aktiv? Dann muss auch eine leere Auswahl gebaut werden (= alles zurück auf Vanilla). */
+    private static boolean hasOwnPackEnabled(String packName) {
+        try {
+            return Minecraft.getInstance().getResourcePackRepository().getSelectedIds()
+                    .contains("file/" + Exporter.safeFileName(packName));
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /** Aktiviert das gebaute Pack ganz oben in der Pack-Liste und lädt die Ressourcen neu. */
@@ -161,7 +189,7 @@ final class Session {
                         int added = 0;
                         for (ModrinthClient.Hit h : ModrinthClient.search(term, "downloads", null, 0, perItem + 2).join().hits()) {
                             if (added >= perItem) break;
-                            if (ModrinthClient.isDownloaded(h.slug(), have) || todo.containsKey(h.id())) continue;
+                            if (ModrinthClient.isDownloaded(h, have) || todo.containsKey(h.id())) continue;
                             todo.put(h.id(), h);
                             added++;
                         }
@@ -199,6 +227,26 @@ final class Session {
         });
     }
 
+    /** Prüft alle Modrinth-Packs auf neue Versionen. Die Auswahl bleibt dabei erhalten. */
+    static void updatePacks() {
+        if (fetching) return;
+        fetching = true;
+        status = Component.translatable("tpb.status.updates_checking");
+        Minecraft mc = Minecraft.getInstance();
+        ModrinthClient.updateAll().whenComplete((n, err) -> mc.execute(() -> {
+            fetching = false;
+            if (err != null) {
+                status = Component.translatable("tpb.status.import_error", reason(err));
+            } else if (n == 0) {
+                status = Component.translatable("tpb.status.updates_none");
+            } else {
+                status = Component.translatable("tpb.status.updates_done", n);
+                scan();
+            }
+            refreshScreen();
+        }));
+    }
+
     static void importFiles(List<Path> files) {
         if (files.isEmpty()) return;
         status = Component.translatable("tpb.status.importing");
@@ -229,6 +277,7 @@ final class Session {
         if (!pack.deletable()) return;
         try {
             Files.deleteIfExists(pack.location());
+            de.texturepackbuilder.core.DownloadIndex.remove(pack.location().getFileName().toString());
             status = Component.translatable("tpb.status.deleted", pack.name());
             scan();
         } catch (IOException e) {

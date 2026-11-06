@@ -35,7 +35,7 @@ public final class PackIO implements AutoCloseable {
     public byte[] read(SourcePack pack, String entry) throws IOException {
         if (pack.zip()) {
             ZipFile z = zip(pack.location());
-            ZipEntry e = z.getEntry(entry);
+            ZipEntry e = z.getEntry(pack.root() + entry);
             if (e == null) throw new NoSuchFileException(entry);
             try (InputStream in = z.getInputStream(e)) {
                 return in.readAllBytes();
@@ -47,7 +47,9 @@ public final class PackIO implements AutoCloseable {
     public List<String> list(SourcePack pack) throws IOException {
         List<String> out = new ArrayList<>();
         if (pack.zip()) {
-            zip(pack.location()).stream().filter(e -> !e.isDirectory()).forEach(e -> out.add(e.getName()));
+            String root = pack.root();
+            zip(pack.location()).stream().filter(e -> !e.isDirectory() && e.getName().startsWith(root))
+                    .forEach(e -> out.add(e.getName().substring(root.length())));
         } else {
             Path root = pack.location();
             try (Stream<Path> s = Files.walk(root)) {
@@ -56,6 +58,21 @@ public final class PackIO implements AutoCloseable {
             }
         }
         return out;
+    }
+
+    /** Ordner im ZIP, in dem pack.mcmeta liegt ("" = Wurzel, null = kein Resource Pack). */
+    public static String findRoot(ZipFile z) {
+        String best = null;
+        java.util.Enumeration<? extends ZipEntry> en = z.entries();
+        while (en.hasMoreElements()) {
+            String n = en.nextElement().getName();
+            if (!n.endsWith("pack.mcmeta")) continue;
+            String prefix = n.substring(0, n.length() - "pack.mcmeta".length());
+            if (!prefix.isEmpty() && !prefix.endsWith("/")) continue;
+            if (prefix.chars().filter(c -> c == '/').count() > 2) continue;
+            if (best == null || prefix.length() < best.length()) best = prefix;
+        }
+        return best;
     }
 
     public static byte[] readOnce(SourcePack pack, String entry) throws IOException {

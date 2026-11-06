@@ -1,9 +1,5 @@
 package de.texturepackbuilder.core;
 
-import de.texturepackbuilder.core.Model.SourceRef;
-import de.texturepackbuilder.core.Model.TextureEntry;
-import de.texturepackbuilder.core.Model.TextureIndex;
-import de.texturepackbuilder.core.Model.Variant;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -49,7 +45,8 @@ public final class Exporter {
         }
     }
 
-    public static Result export(TextureIndex idx, Map<String, String> selection, Map<String, String> models, String packName) throws IOException {
+    /** Schreibt das Pack aus einem fertigen Plan (siehe Resolve.plan). */
+    public static Result export(Map<String, Resolve.Src> plan, String packName) throws IOException {
         Path dir = Dirs.resourcepacks();
         Files.createDirectories(dir);
         Path out = target(dir, safeFileName(packName));
@@ -57,42 +54,25 @@ public final class Exporter {
         Files.createDirectories(out);
 
         TreeSet<String> usedPacks = new TreeSet<>();
-        TreeSet<String> written = new TreeSet<>();
         int count = 0;
         byte[] icon = null;
         try (PackIO io = new PackIO()) {
-            for (Map.Entry<String, String> e : selection.entrySet()) {
-                TextureEntry te = idx.entries.get(e.getKey());
-                if (te == null) continue;
-                Variant v = te.find(e.getValue());
-                if (v == null) continue; // Quell-Pack wurde entfernt
-                SourceRef r = v.primary();
-                write(out, e.getKey(), io.read(r.pack(), r.entry()));
-                if (r.mcmetaEntry() != null) write(out, e.getKey() + ".mcmeta", io.read(r.pack(), r.mcmetaEntry()));
+            for (Map.Entry<String, Resolve.Src> e : plan.entrySet()) {
+                Resolve.Src src = e.getValue();
+                try {
+                    write(out, e.getKey(), io.read(src.pack(), src.entry()));
+                } catch (IOException missing) {
+                    continue; // Datei im Pack nicht (mehr) vorhanden
+                }
+                usedPacks.add(src.pack().name());
+                if (e.getKey().endsWith(".png") && e.getKey().contains("/textures/")) count++;
                 if (icon == null) {
                     try {
-                        icon = io.read(r.pack(), "pack.png");
+                        icon = io.read(src.pack(), "pack.png");
                     } catch (IOException ignored) {
                         icon = new byte[0];
                     }
                 }
-                usedPacks.add(r.pack().name());
-                written.add(e.getKey());
-                count++;
-            }
-            // 3D-Modelle der gewählten Styles mitkopieren
-            for (Map.Entry<String, String> m : models.entrySet()) {
-                Model.SourcePack pack = idx.packByName(m.getValue());
-                Model.Bundle bundle = pack == null ? null : idx.bundles.getOrDefault(m.getKey(), Map.of()).get(pack);
-                if (bundle == null) continue;
-                for (String f : bundle.files()) {
-                    try {
-                        write(out, f, io.read(pack, f));
-                        written.add(f);
-                    } catch (IOException ignored) {
-                    }
-                }
-                usedPacks.add(pack.name());
             }
         }
         String desc = packName.replace("\\", "\\\\").replace("\"", "\\\"");
@@ -108,7 +88,7 @@ public final class Exporter {
                 + "Texturen aus / Textures from (Lizenzen beachten / respect the licenses):\n\n");
         usedPacks.forEach(p -> credits.append("- ").append(p).append('\n'));
         write(out, "credits.txt", credits.toString().getBytes(StandardCharsets.UTF_8));
-        write(out, Dirs.GENERATED_MARKER, String.join("\n", written).getBytes(StandardCharsets.UTF_8));
+        write(out, Dirs.GENERATED_MARKER, String.join("\n", plan.keySet()).getBytes(StandardCharsets.UTF_8));
         return new Result(out, out.getFileName().toString(), count);
     }
 

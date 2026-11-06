@@ -155,7 +155,7 @@ public class ModrinthScreen extends BaseScreen {
         for (int i = 0; i < Math.min(per, hits.size()); i++) {
             Hit h = hits.get(i);
             int y = listTop + 4 + i * ROW + (ROW - 20) / 2 - 2;
-            boolean done = ModrinthClient.isDownloaded(h.slug(), downloaded);
+            boolean done = ModrinthClient.isDownloaded(h, downloaded);
             boolean loading = downloading.contains(h.id());
             Component label = done ? Component.translatable("tpb.modrinth.downloaded").withStyle(ChatFormatting.GREEN)
                     : loading ? Component.translatable("tpb.modrinth.loading")
