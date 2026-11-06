@@ -36,7 +36,9 @@ final class ModelBundles {
         return null;
     }
 
-    static void collect(SourcePack pack, PackIO io, List<String> names, Set<String> nameSet, Map<String, Map<SourcePack, Bundle>> out) {
+    /** Ergebnis: PvP-Item-ID → Modell-Dateien dieses Packs. */
+    static Map<String, Bundle> collect(SourcePack pack, PackIO io, List<String> names, Set<String> nameSet) {
+        Map<String, Bundle> out = new HashMap<>();
         Map<String, byte[]> cache = new HashMap<>();
         for (Item item : PvpCatalog.ITEMS) {
             Set<String> files = new TreeSet<>();
@@ -67,10 +69,11 @@ final class ModelBundles {
                     if (d != null) md.update(d);
                 }
                 String hash = java.util.HexFormat.of().formatHex(md.digest()).substring(0, 16);
-                out.computeIfAbsent(item.id(), k -> new HashMap<>()).put(pack, new Bundle(files, hash));
+                out.put(item.id(), new Bundle(files, hash));
             } catch (Exception ignored) {
             }
         }
+        return out;
     }
 
     private static byte[] read(SourcePack pack, PackIO io, String f, Map<String, byte[]> cache) {

@@ -39,10 +39,24 @@ public abstract class BaseScreen extends Screen {
         this.tab = tab;
     }
 
+    /** Beim Spielstart: beim allerersten Mal alle PvP-Packs laden, sonst nur schon mal einlesen. */
+    public static void onClientStarted() {
+        Session.initialDownloadIfNeeded();
+        Session.scanIfNeeded();
+    }
+
     @Override
     protected void init() {
         int w = width < 520 ? 58 : 78;
         int x = width - 8 - Tab.values().length * (w + 2) + 2;
+        // Neu laden: Packs neu einlesen, Pack neu bauen, Minecraft-Ressourcen komplett neu laden
+        addRenderableWidget(Button.builder(Component.translatable("tpb.button.reload"), b -> {
+            previews.clear();
+            if (TexturesScreen.packName == null) {
+                TexturesScreen.packName = Component.translatable("tpb.packname.default").getString();
+            }
+            Session.reloadAll(TexturesScreen.packName);
+        }).bounds(x - 4 - 76, 2, 76, 20).build());
         for (Tab t : Tab.values()) {
             MutableComponent label = Component.translatable(t.key);
             if (t == tab) label = label.withStyle(ChatFormatting.YELLOW);
@@ -94,6 +108,13 @@ public abstract class BaseScreen extends Screen {
         g.drawString(font, title, 8, 8, Theme.TEXT);
         if (activeTab != null) {
             g.fill(activeTab.getX() + 2, HEADER - 3, activeTab.getX() + activeTab.getWidth() - 2, HEADER - 1, Theme.ACCENT);
+        }
+        // Fortschrittsbalken beim PvP-Download
+        if (Session.fetching && Session.progressTotal > 0) {
+            int bw = Math.min(160, width / 4), bx = 8 + font.width(title) + 12, by = 9;
+            g.fill(bx, by, bx + bw, by + 6, Theme.PANEL_DARK);
+            g.fill(bx, by, bx + bw * Session.progressDone / Session.progressTotal, by + 6, Theme.ACCENT);
+            Theme.outline(g, bx - 1, by - 1, bw + 2, 8, Theme.BORDER);
         }
         previews.beginFrame();
         drawContent(g, mouseX, mouseY);

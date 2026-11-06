@@ -3,7 +3,9 @@ package de.texturepackbuilder;
 import de.texturepackbuilder.gui.ItemsScreen;
 import com.mojang.blaze3d.platform.InputConstants;
 import net.fabricmc.api.ClientModInitializer;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientLifecycleEvents;
 import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientTickEvents;
+import de.texturepackbuilder.gui.BaseScreen;
 import net.fabricmc.fabric.api.client.keybinding.v1.KeyBindingHelper;
 import net.minecraft.client.KeyMapping;
 import net.minecraft.resources.Identifier;
@@ -44,6 +46,8 @@ public class TexturePackBuilder implements ClientModInitializer {
         KeyMapping.Category category = KeyMapping.Category.register(Identifier.fromNamespaceAndPath(MOD_ID, "main"));
         openKey = KeyBindingHelper.registerKeyBinding(new KeyMapping(
                 "key.texturepackbuilder.open", InputConstants.Type.KEYSYM, GLFW.GLFW_KEY_K, category));
+        // Erster Start: alle PvP-Packs laden; sonst im Hintergrund schon einlesen, damit der Tab sofort bereit ist
+        ClientLifecycleEvents.CLIENT_STARTED.register(client -> BaseScreen.onClientStarted());
         ClientTickEvents.END_CLIENT_TICK.register(client -> {
             while (openKey.consumeClick()) {
                 if (client.screen == null) client.setScreen(new ItemsScreen(null));

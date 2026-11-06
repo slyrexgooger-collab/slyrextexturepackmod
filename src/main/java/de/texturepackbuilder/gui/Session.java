@@ -36,6 +36,12 @@ final class Session {
     static boolean needsRescan = false;
     /** "Anwenden" wurde gedrückt, während eingelesen wurde → danach automatisch ausführen. */
     private static String pendingApply = null;
+    /** Beim nächsten Anwenden komplett neu laden statt Blitzwechsel (Neu-laden-Knopf). */
+    private static boolean forceFullReload = false;
+    /** Zuletzt angewendeter Plan – für den Blitzwechsel wird nur der Unterschied getauscht. */
+    private static Map<String, Resolve.Src> lastApplied = null;
+    /** Fortschritt des PvP-Downloads (für den Balken). */
+    static int progressDone = 0, progressTotal = 0;
 
     private Session() {}
 
@@ -57,6 +63,11 @@ final class Session {
     }
 
     static void scan() {
+        scan(false);
+    }
+
+    /** force = Zwischenspeicher ignorieren und jedes Pack komplett neu einlesen. */
+    static void scan(boolean force) {
         if (busy) {
             needsRescan = true;
             return;
@@ -68,7 +79,7 @@ final class Session {
         CompletableFuture.supplyAsync(() -> {
             try {
                 return Scanner.scan((name, i, n) -> mc.execute(() ->
-                        status = Component.translatable("tpb.status.scanning", name, i, n)));
+                        status = Component.translatable("tpb.status.scanning", name, i, n)), force);
             } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
@@ -124,7 +135,7 @@ final class Session {
                 status = Component.translatable("tpb.status.build_error", reason(err));
                 TexturePackBuilder.LOG.error("Export fehlgeschlagen", err);
             } else if (enable) {
-                enablePack(res.folderName(), res.textures());
+                apply(res, plan);
             } else {
                 status = Component.translatable("tpb.status.built", res.textures(), res.folderName());
             }
@@ -135,6 +146,57 @@ final class Session {
                 build(name, true);
             }
         }));
+    }
+
+    /**
+     * Pack ins Spiel bringen: wenn möglich per Blitzwechsel (nur geänderte Texturen direkt auf der GPU,
+     * dauert Millisekunden), sonst mit komplettem Ressourcen-Neuladen.
+     */
+    private static void apply(Exporter.Result res, Map<String, Resolve.Src> plan) {
+        Minecraft mc = Minecraft.getInstance();
+        String id = "file/" + res.folderName();
+        boolean active;
+        try {
+            active = mc.getResourcePackRepository().getSelectedIds().contains(id);
+        } catch (Exception e) {
+            active = false;
+        }
+        if (active && !forceFullReload) {
+            java.util.Set<String> changed = new java.util.TreeSet<>();
+            if (lastApplied == null) {
+                changed.addAll(res.previous());
+                changed.addAll(plan.keySet());
+            } else {
+                for (Map.Entry<String, Resolve.Src> e : plan.entrySet()) {
+                    if (!e.getValue().equals(lastApplied.get(e.getKey()))) changed.add(e.getKey());
+                }
+                for (String k : lastApplied.keySet()) if (!plan.containsKey(k)) changed.add(k);
+            }
+            long t0 = System.nanoTime();
+            if (changed.isEmpty() || de.texturepackbuilder.core.HotSwap.trySwap(changed)) {
+                lastApplied = plan;
+                Selection.dirty = false;
+                long ms = Math.max(1, (System.nanoTime() - t0) / 1_000_000);
+                status = Component.translatable("tpb.status.swapped", changed.size(), ms);
+                return;
+            }
+        }
+        forceFullReload = false;
+        enablePack(res.folderName(), res.textures());
+        lastApplied = plan;
+    }
+
+    /** Neu-laden-Knopf: Packs neu einlesen, Pack neu bauen und Minecraft komplett neu laden lassen. */
+    static void reloadAll(String packName) {
+        forceFullReload = true;
+        lastApplied = null;
+        if (busy) {
+            needsRescan = true;
+            pendingApply = packName;
+            return;
+        }
+        pendingApply = packName;
+        scan(true);
     }
 
     /** Ist unser gebautes Pack aktiv? Dann muss auch eine leere Auswahl gebaut werden (= alles zurück auf Vanilla). */
@@ -175,45 +237,63 @@ final class Session {
      * Holt automatisch PvP-Packs von Modrinth für die angegebenen Items
      * (pro Item die beliebtesten passenden Packs für 1.21.11, max. 40 MB pro Datei).
      */
-    static void fetchPvpPacks(List<Item> items, int perItem) {
+    static void fetchPvpPacks(List<Item> items, int perTerm) {
         if (fetching || items.isEmpty()) return;
         fetching = true;
+        progressDone = 0;
+        progressTotal = 0;
         status = Component.translatable("tpb.status.fetch_search");
         Minecraft mc = Minecraft.getInstance();
         CompletableFuture.runAsync(() -> {
+            // 1) für jedes Item alle Suchbegriffe abfragen (so viele Packs wie möglich)
             Map<String, ModrinthClient.Hit> todo = new LinkedHashMap<>();
             Set<String> have = ModrinthClient.listDownloads();
             for (Item it : items) {
                 for (String term : it.search()) {
                     try {
                         int added = 0;
-                        for (ModrinthClient.Hit h : ModrinthClient.search(term, "downloads", null, 0, perItem + 2).join().hits()) {
-                            if (added >= perItem) break;
+                        for (ModrinthClient.Hit h : ModrinthClient.search(term, "downloads", null, 0, perTerm + 4).join().hits()) {
+                            if (added >= perTerm) break;
                             if (ModrinthClient.isDownloaded(h, have) || todo.containsKey(h.id())) continue;
                             todo.put(h.id(), h);
                             added++;
                         }
-                        if (added > 0) break;
                     } catch (Exception e) {
                         TexturePackBuilder.LOG.warn("Suche nach {} fehlgeschlagen", term, e);
                     }
                 }
             }
-            int i = 0, ok = 0, skipped = 0;
+            // 2) parallel herunterladen (4 gleichzeitig)
+            int total = todo.size();
+            mc.execute(() -> progressTotal = total);
+            java.util.concurrent.atomic.AtomicInteger ok = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.atomic.AtomicInteger done = new java.util.concurrent.atomic.AtomicInteger();
+            java.util.concurrent.ExecutorService pool = java.util.concurrent.Executors.newFixedThreadPool(4, r -> {
+                Thread t = new Thread(r, "TexturePackBuilder-Download");
+                t.setDaemon(true);
+                return t;
+            });
+            List<CompletableFuture<Void>> jobs = new ArrayList<>();
             for (ModrinthClient.Hit h : todo.values()) {
-                i++;
-                int n = i, total = todo.size();
-                mc.execute(() -> status = Component.translatable("tpb.status.fetch_progress", n, total, h.title()));
-                try {
-                    ModrinthClient.download(h, MAX_AUTO_BYTES).join();
-                    ok++;
-                } catch (Exception e) {
-                    skipped++;
-                }
+                jobs.add(CompletableFuture.runAsync(() -> {
+                    try {
+                        ModrinthClient.download(h, MAX_AUTO_BYTES).join();
+                        ok.incrementAndGet();
+                    } catch (Exception ignored) {
+                    }
+                    int n = done.incrementAndGet();
+                    mc.execute(() -> {
+                        progressDone = n;
+                        status = Component.translatable("tpb.status.fetch_progress", n, total, h.title());
+                    });
+                }, pool));
             }
-            int okF = ok, skippedF = skipped;
+            CompletableFuture.allOf(jobs.toArray(new CompletableFuture[0])).join();
+            pool.shutdown();
+            int okF = ok.get(), skippedF = total - okF;
             mc.execute(() -> {
                 fetching = false;
+                progressTotal = 0;
                 status = Component.translatable("tpb.status.fetch_done", okF, skippedF);
                 if (okF > 0) scan();
                 refreshScreen();
@@ -221,10 +301,23 @@ final class Session {
         }, TexturePackBuilder.EXEC).exceptionally(err -> {
             mc.execute(() -> {
                 fetching = false;
+                progressTotal = 0;
                 status = Component.translatable("tpb.status.import_error", reason(err));
             });
             return null;
         });
+    }
+
+    /** Erster Start: einmalig alle PvP-Packs für alle Items laden. */
+    static void initialDownloadIfNeeded() {
+        java.nio.file.Path flag = de.texturepackbuilder.core.Dirs.downloads().resolveSibling("initial_download_done");
+        if (Files.exists(flag)) return;
+        try {
+            Files.createDirectories(flag.getParent());
+            Files.writeString(flag, "1");
+        } catch (IOException ignored) {
+        }
+        fetchPvpPacks(de.texturepackbuilder.core.PvpCatalog.ITEMS, 6);
     }
 
     /** Prüft alle Modrinth-Packs auf neue Versionen. Die Auswahl bleibt dabei erhalten. */

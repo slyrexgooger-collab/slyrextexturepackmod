@@ -149,5 +149,7 @@
   "tpb.status.updates_done": "Updated %s pack(s) – your selection is kept.",
   "tpb.status.apply_queued": "Packs are being read – will be applied automatically afterwards.",
   "tpb.status.style_chosen_auto": "Picked \"%s\" for %s – applying now …",
-  "tpb.auto_apply": "Apply instantly"
+  "tpb.auto_apply": "Apply instantly",
+  "tpb.button.reload": "⟳ Reload",
+  "tpb.status.swapped": "⚡ Swapped %s texture(s) in %s ms."
 }

@@ -130,7 +130,7 @@ public class ItemsScreen extends BaseScreen {
         addRenderableWidget(Button.builder(Component.translatable("tpb.fetch.mode"), b -> {
             List<Item> items = new ArrayList<>();
             for (Item i : PvpCatalog.ITEMS) if (mode().includes(i)) items.add(i);
-            Session.fetchPvpPacks(items, 2);
+            Session.fetchPvpPacks(items, 6);
         }).bounds(12, bottom - 22, sideW - 8, 18).build());
 
         // Filter-Reiter
@@ -179,7 +179,7 @@ public class ItemsScreen extends BaseScreen {
                 .bounds(width - 34, gridBottom + 4, 20, 16).build());
         fetchItemBtn = addRenderableWidget(Button.builder(Component.translatable("tpb.fetch.item"), b -> {
             Item it = item();
-            if (it != null) Session.fetchPvpPacks(List.of(it), 4);
+            if (it != null) Session.fetchPvpPacks(List.of(it), 10);
         }).bounds(mainX + mainW / 2 - 70, gridBottom - 30, 140, 20).build());
 
         // Fußleiste
@@ -365,7 +365,7 @@ public class ItemsScreen extends BaseScreen {
                 Styles.apply(it, s);
                 Session.status = Component.translatable(autoApply ? "tpb.status.style_chosen_auto" : "tpb.status.style_chosen",
                         s == null ? "Vanilla" : s.name(), Component.translatable(it.nameKey()));
-                if (autoApply) applyAt = System.currentTimeMillis() + 900;
+                if (autoApply) applyAt = System.currentTimeMillis() + 150; // schnelle Klicks kurz sammeln
             }).bounds(x, y, CARD_W, CARD_H).build()));
             cardStyles.add(s);
         }

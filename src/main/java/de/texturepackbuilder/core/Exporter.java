@@ -20,7 +20,8 @@ public final class Exporter {
     private static final int PACK_FORMAT = 75;
 
     /** folderName = Name des Ordners in resourcepacks (Pack-ID ist "file/" + folderName). */
-    public record Result(Path dir, String folderName, int textures) {}
+    /** previous = Dateien des vorher gebauten Packs (für den Blitzwechsel: was hat sich geändert?). */
+    public record Result(Path dir, String folderName, int textures, java.util.Set<String> previous) {}
 
     private Exporter() {}
 
@@ -50,6 +51,11 @@ public final class Exporter {
         Path dir = Dirs.resourcepacks();
         Files.createDirectories(dir);
         Path out = target(dir, safeFileName(packName));
+        java.util.Set<String> previous = new java.util.TreeSet<>();
+        Path marker = out.resolve(Dirs.GENERATED_MARKER);
+        if (Files.exists(marker)) {
+            for (String line : Files.readAllLines(marker, StandardCharsets.UTF_8)) if (!line.isBlank()) previous.add(line.trim());
+        }
         deleteTree(out);
         Files.createDirectories(out);
 
@@ -89,7 +95,7 @@ public final class Exporter {
         usedPacks.forEach(p -> credits.append("- ").append(p).append('\n'));
         write(out, "credits.txt", credits.toString().getBytes(StandardCharsets.UTF_8));
         write(out, Dirs.GENERATED_MARKER, String.join("\n", plan.keySet()).getBytes(StandardCharsets.UTF_8));
-        return new Result(out, out.getFileName().toString(), count);
+        return new Result(out, out.getFileName().toString(), count, previous);
     }
 
     private static void write(Path root, String name, byte[] data) throws IOException {
